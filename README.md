@@ -1,1 +1,1 @@
-# linux-howto
+# Linux How-to

@@ -94,6 +94,8 @@ efi-readvar > original_efi.txt
 
 
 # Install New Keys in setup mode
+In setup mode BIOS allows write into PK, KEK, DB and DBX without any sign. But once you write PK key, the Setup Mode will be switched off and KEK, DB and DBX can be updated with the signed data only. 
+
 To write new key in setup mode we can use the following command
 ```bash
 efi-updatevar -e -f FILE.esl VAR
@@ -102,6 +104,8 @@ And you can write any `*.esl` file without signing until PK is empty (because we
 When we write anything into PK variable the 'setup mode' will be switched off.
 
 ## Install only new keys
+If you need install just your own keys you need understand that you will need sign your kernel and bootloader with this new keys. Otherwise it will not be loaded by BIOS. Even Ubuntu (beacuse it is signed by Microsoft).
+
 To write KEK and DB run the following
 ```bash
 efi-updatevar -e -f KEK.esl KEK
@@ -112,18 +116,28 @@ Optionaly you can write the original dbx database because it could contains a ha
 efi-updatevar -e -f original_dbx.esl DBX
 ```
 
-Complete install by installing platform key
+Finally install by installing platform key
 ```bash
 efi-updatevar -f PK.esl PK
 ```
-But you should understand that only with new keys your current operation systems will not be able to run in Secure Boot. Because you need sign it with a new key or add it's hashes i into DB. 
+But you should understand that your current operation systems will not be able to run in Secure Boot. Because you need sign it with a new key or add it's hashes into DB storage. 
 
 ## Install new keys with the original keys
 
+To install original keys with a new one you just need concatenate original `*.esl` file with you new `*.esl`
+```bash
+cat original_KEK.esl KEK.esl > compound_KEK.esl
+cat original_db.esl DB.esl > compound_DB.esl
+```
+To write compound KEK and DB run the following
 
-## Option 1: Fully secured
+```bash
+efi-updatevar -e -f compound_KEK.esl KEK
+efi-updatevar -e -f compound_DB.esl DB
+```
+And original dbx (because we didn't change it)
+```bash
+efi-updatevar -e -f original_dbx.esl DBX
+```
 
-### Windows boot supportp
-
-## Option 2: With Microsoft keys 
 

@@ -19,4 +19,3 @@ fi
 $SCRIPTS_DIR/generate-new-key.sh PK <<<"$PASSWORD"
 $SCRIPTS_DIR/generate-new-key.sh KEK <<<"$PASSWORD"
 $SCRIPTS_DIR/generate-new-key.sh db <<<"$PASSWORD"
-$SCRIPTS_DIR/generate-new-key.sh dbx <<<"$PASSWORD"

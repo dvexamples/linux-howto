@@ -9,6 +9,116 @@ Secure Boot
 sudo apt install efitools
 ```
  
+#Replace EFI with custom keys
+
+##Backup original keys
+* In ESL format
+```bash
+efi-readvar -v PK  -o original-pk.esl
+efi-readvar -v KEK -o original-kek.esl
+efi-readvar -v db  -o original-db.esl
+```
+
+* In human readable format (optional)
+```bash
+efi-readvar -v PK  > original-pk.txt
+efi-readvar -v KEK > original-kek.txt
+efi-readvar -v db  > original-db.txt
+```
+
+## Generate keys
+
+1. New platform key (PK)
+```bash
+openssl req -new -x509 -newkey rsa:2048 -subj "/CN=PK/" -keyout pk.key -out pk.crt -days 7300 -sha256
+```
+
+2. New Key Exchange Key (KEK)
+```bash
+openssl req -new -x509 -newkey rsa:2048 -subj "/CN=KEK/" -keyout kek.key -out kek.crt -days 7300 -sha256
+```
+
+3. New DB key (DB)
+```bash
+openssl req -new -x509 -newkey rsa:2048 -subj "/CN=DB/" -keyout db.key -out db.crt -days 7300 -sha256
+```
+##Convert certificate to EFI signature list (ESL)
+```bash
+cert-to-efi-sig-list pk.crt pk.esl
+cert-to-efi-sig-list kek.crt kek.esl
+cert-to-efi-sig-list db.crt db.esl
+```
+
+##Add original keys
+```bash
+cat original-kek.esl kek.esl > compound-kek.esl
+cat original-db.esl db.esl > compound-db.esl
+```
+
+
+##Signing keys
+Each key must be signed with the correspondant key.
+    1. PK is signed by itself
+    2. KEK is signed by PK
+    3. DB is signed by KEK
+```bash
+sign-efi-sig-list -k pk.key  -c pk.crt  PK  pk.esl  pk.auth
+sign-efi-sig-list -k pk.key  -c pk.crt  KEK kek.esl kek.auth
+sign-efi-sig-list -k kek.key -c kek.crt db  db.esl  db.auth
+```
+
+If original keys also is required then the compound keys (KEK and DB) must be signed.
+```bash
+sign-efi-sig-list -k pk.key  -c pk.crt  KEK compound_kek.esl compound_kek.auth
+sign-efi-sig-list -k kek.key -c kek.crt db  compound_db.esl  compound_db.auth
+```
+
+##Setup keys
+
+> In case of getting message "Failed to update dbx: Operation not permitted" use 
+> `chattr -i /sys/firmware/efi/efivars/{PK,KEK,db,dbx}-*` command 
+
+* Install custom DB and KEK keys only
+```bash
+efi-updatevar -f db.auth  db
+efi-updatevar -f kek.auth KEK
+```
+
+* Install custom and original keys 
+```bash
+efi-updatevar -f compound_db.auth  db
+efi-updatevar -f compound_KEK.auth KEK
+```
+
+Install platform key (PK). This operation enable User Mode which prevent any futher unsigned changes
+```bash
+efi-updatevar -f pk.auth PK
+```
+
+#Signing Grub
+
+```bash
+sbsign --key db.key --cert db.crt /boot/efi/EFI/ubuntu/grubx64.efi
+```
+This command produce signed version with the name `grubx64.efi.signed` (in /boot/efi/EFI/ubuntu/ folder)
+
+#Add boot entry for Signed Grub
+
+To find out a disk of EFI partion 
+* if the EFI partion located on some of /sda 
+```bash
+sudo efibootmgr --create  -d ${DISK}  --label "Secure Ubuntu" --loader '\EFI\UBUNTU\grubx64.efi.signed' --verbose
+```
+Instead of  `${DISK}` use the disk where your EFI partition is located. The following command shows the requried value
+```bash
+cat /proc/self/mounts | grep /boot/efi | awk '{print $1}'
+```
+> if the value is looks like this `/dev/nvme0n1p1` then use the value `/dev/nvme0n1`, without the last two characters `p1`.
+
+
+
+
+
 # Generate the new keys
 
 You need three keys
@@ -24,7 +134,7 @@ openssl req -new -x509 -newkey rsa:2048 -subj "/CN=Any text description of the k
 * FILE.key - is a private key encrypted by the password
 * FILE.crt - is a public certificate
 	
-Use can use any file names instead of `FILE.key` and `FILE.crt`
+You can use any file names instead of `FILE.key` and `FILE.crt`
 
 Then we need convert `*.crt` file to  `*.esl` file format
 
@@ -100,7 +210,7 @@ To write new key in setup mode we can use the following command
 ```bash
 efi-updatevar -e -f FILE.esl VAR
 ```
-And you can write any `*.esl` file without signing until PK is empty (because we are in step mode). 
+And you can write any `*.esl` file without signing until PK is empty (because we are in setup mode). 
 When we write anything into PK variable the 'setup mode' will be switched off.
 
 ## Install only new keys
@@ -108,7 +218,7 @@ If you need install just your own keys you need understand that you will need si
 
 To write KEK and DB run the following
 ```bash
-efi-updatevar -e -f KEK.esl KEK
+efi-updatevar -e -f KEK.esl KEKh
 efi-updatevar -e -f db.esl DB
 ```
 Optionaly you can write the original dbx database because it could contains a hashes of known malware. 

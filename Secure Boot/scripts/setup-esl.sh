@@ -1,14 +1,18 @@
 #!/bin/bash
 
 #Print help if necessary
-if [[ ($1 == "help") || ("$#" -ne 2) || ($1 != "PK" && $1 != "KEK" && $1 != "db" && $1 != "dbx") ]]; then
-    echo 'Usage: <KEK|db|dbx> <FILE.esl>'
+if [[ ($1 == "help") || ("$#" -ne 4) || ($1 != "PK" && $1 != "KEK" && $1 != "db" && $1 != "dbx") ]]; then
+    echo 'Usage: <KEK|db|dbx> <KEY.FILE> <CERTIFICATE.FILE> <FILE.esl>'
     exit 1
 fi
 
 #Parameters
 VARIABLE=$1
-ESL_FILE=$2
+KEY_FILE=$2
+CERT_FILE=$3
+ESL_FILE=$4
+
+
 
 #Check ESL file
 if [ ! -f "$ESL_FILE" ]; then
